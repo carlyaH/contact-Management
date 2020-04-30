@@ -1,0 +1,114 @@
+
+
+
+About this API: This API accesses the database that holds all management information such as name, address, DOB, title, etc. You can use this API to create, retrieve, update, and delete manager information in the database. 
+Database:
+	
+	
+	
+	The name of the QA database is management info. The structure for the database is as follows
+managementinfo(
+LastName varchar(30),
+FirstName varchar(30),
+StreetNumber int,
+Street varchar(50),
+City varchar(50),
+State varchar(3),
+Zipcode varchar(22),
+Unit varchar(22),
+Phone varchar(33),
+Email varchar(50),
+Gender varchar(2),
+DOB varchar(50),
+Preferred varchar(10),
+Title varchar(20)
+Contact1Type varchar
+Contact2Type varchar
+AddressType var char
+ManagementID int)
+
+GET(Retrieve): Retrieves All Account Information
+	Request URL: http://localhost:8083/getManagementInfo 
+Request instructions: Within postman set the method to get and enter the URL. Send the request and all fields in the table will return.
+
+
+
+
+GET by ID(Retrieve): Retrieves Account Information by ID
+	Request URL: http://localhost:8083/getManagementInfo/{managementID}
+Request instructions: Within postman set the method to get and enter the URL and fill in the managementID parameter with a manager’s ID number. Sent the request and all fields with matching managerID will return.   
+Example: http://localhost:8083/getManagementInfo/4
+
+
+
+POST(Create): Creates New Account Information
+	Request URL: http://localhost:8083/postManagementInfo
+Request instructions: Within postman Enter the URL and set the method to post. Within the body of the request ensure that the text type is set to JSON and RAW. Enter a body with the data structure below. Send the request and the return is a success message.   
+Example of data structure/Payload: 
+{  
+	"managementID": 10,
+   "Identification":{
+      "FirstName":"Bob",
+      "LastName":"Frederick",
+      "DOB":"06/21/1980",
+      "Gender":"M",
+      "Title":"Manager" },
+   "Address":[
+      {
+         "AddressType":"home",
+         "Number":1234,
+         "Street":"blah blah St",
+         "Unit":"1 a",
+         "City":"Somewhere",
+         "State":"WV",
+         "Zipcode":"12345"  } 
+],
+   "Communication":[
+      {
+         "Type1":"email",
+         "Value":"bfe@sample.com",
+         "Preferred":"true" },
+ {
+         "Type2":"cell",
+         "Value2":"304-555-8282"
+     }]}
+
+
+
+PUT(UPDATE): Updates the Account With Matching ManagementID 
+	Request URL: http://localhost:8083/putManagementInfo
+Request instructions: Within postman Enter the URL and set the method to put. Within the body of the request ensure that the text type is set to JSON and RAW. Enter a body with the data structure below and managementID for the records you’d like to change. Remember to use “ “ for all values even empty ones to avoid NULL values being entered. Send the request and the return is a success message.   
+Example Data Structure/Payload:
+{ 
+   "managementID": 10,
+   "Identification":{
+      "FirstName":"Bob",
+      "LastName":"Frederick",
+      "DOB":"06/21/1980",
+      "Gender":"M",
+      "Title":"Manager"},
+   "Address":[
+      { "AddressType":"home",
+         "Number":1755,
+         "Street":"North St",
+         "Unit":"",
+         "City":"Atlanta",
+         "State":"GA",
+         "Zipcode":"15779"}],
+   "Communication":[
+      {
+         "Type1":"email",
+         "Value":"newEmail@sample.com",
+         "Preferred":"true" },
+      {
+         "Type2":"cell",
+         "Value2":"377-555-6666" }]}
+
+
+
+DELETE(DELETE): Delete Fields with matching ManagementID
+	Request URL: http://localhost:8083/deleteManagementInfo
+Request instructions: Within postman Enter the URL and set the method to delete. Within the body of the request ensure that the text type is set to JSON and RAW. Enter a body with the data structure below with the managementID for the record you’d like to delete. Send the request and the return is a success message.   
+
+Example Data Structure/Payload: 
+{ "managementID": 10 }

@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="35858939-5f27-466a-a723-ea5789cdb16b" >
+		<db:my-sql-connection host="den1.mysql1.gear.host" port="3306" user="management1" password="quotum!" database="management1" />
+	</db:config>
+	<http:listener-config name="HTTP_Listener_config1" doc:name="HTTP Listener config" doc:id="8c2ce416-aa6f-440d-9dec-fe14c2f28897" >
+		<http:listener-connection host="0.0.0.0" port="8083" />
+	</http:listener-config>
+	<flow name="GetManagementAccountflow" doc:id="63b239ec-6c3e-4486-8966-33ecc3f3cc73" >
+		<http:listener doc:name="getListener" doc:id="bbd50d69-319b-49b2-ba56-34a3f1579b2d" config-ref="HTTP_Listener_config1" path="/getManagementInfo" allowedMethods="GET"/>
+		<db:select doc:name="Select" doc:id="2c11b3b0-970e-48b8-9ddc-1de0dd342671" config-ref="Database_Config">
+			<db:sql>select * from managementinfo;</db:sql>
+		</db:select>
+		<ee:transform doc:name="Transforming to expected output" doc:id="abad788f-d778-41ac-b239-c70083470166" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload map ( payload01 , indexOfPayload01 ) ->{
+	
+		managementID: payload01.managementID,
+		Identification: {
+		FirstName: payload01.FirstName default "",
+		LastName: payload01.LastName default "",
+		DOB: payload01.DOB default "",
+		Gender: payload01.Gender default "",
+		Title: payload01.Title default ""
+	},
+	Address: [{
+		AddressType: payload01.addressType default "",
+		Number: payload01.StreetNumber as Number default 0,
+		Street: payload01.Street default "",
+		Unit: payload01.Unit default "",
+		City: payload01.City default "",
+		State: payload01.State default "",
+		Zipcode: payload01.Zipcode default ""
+	}],
+	Communication: [{
+		Type1: payload01.contact1Type default "",
+		Value: payload01.Email default "",
+		Preferred: payload01.Preferred default "",
+		},
+		{Type2: payload01.contact2Type default "",
+		Value2: payload01.Phone default ""	
+	}]
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="f47aee29-4327-4304-9694-706d738b6e71" type="ANY">
+				<ee:transform doc:name="Transform Message" doc:id="cbf79a1f-c7c0-4be7-be14-09c4a0cefcce" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message:"Request is incorrect please try again"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="postManagementAccountFlow" doc:id="45d1a728-86b0-473a-819f-c1b1c6760e79" >
+		<http:listener doc:name="postListener" doc:id="10b868fd-26ad-48ae-911a-7409eaf4b8b2" config-ref="HTTP_Listener_config1" path="/postManagementInfo" allowedMethods="POST"/>
+		<db:insert doc:name="Post account to table" doc:id="fbece232-a11e-4265-b4f1-535ff8dd0ea7" config-ref="Database_Config">
+			<db:sql>INSERT INTO managementinfo
+(LastName,FirstName,StreetNumber,Street,City,State,Zipcode,Unit,Phone,Email,Gender,DOB,Preferred,Title, contact1Type, contact2Type,addressType,managementID) 
+VALUES 
+(:LastName,:FirstName,:StreetNumber,:Street,:City,:State,:Zipcode,:Unit,:Phone,:Email,:Gender,:DOB,:Preferred,:Title, :contact1Type, :contact2Type,:addressType,:managementID)</db:sql>
+			<db:input-parameters><![CDATA[#[{
+"LastName": payload.Identification.LastName,
+"FirstName":payload.Identification.FirstName,
+"StreetNumber":payload.Address[0].Number ,
+"Street":payload.Address[0].Street,
+"City": payload.Address[0].City,
+"State":payload.Address[0].State,
+"Zipcode":payload.Address[0].Zipcode,
+"Unit":payload.Address[0].Unit,
+"Phone":payload.Communication[1].Value2,
+"Email":payload.Communication[0].Value,
+"Gender":payload.Identification.Gender,
+"DOB":payload.Identification.DOB,
+"Preferred": payload.Communication[0].Preferred,
+"Title": payload.Identification.Title,
+"contact1Type":payload.Communication[0].Type1,
+"contact2Type": payload.Communication[1].Type2,
+"addressType":payload.Address[0].AddressType,
+"managementID":payload.managementID
+}]]]></db:input-parameters>
+		</db:insert>
+		<set-payload value='"New management account was added successfully"' doc:name="Success Message" doc:id="98d33d8d-eae1-4aa6-ad84-7c94c2b4677c" />
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="Copy_of_On Error Propagate" doc:id="261c2ad0-71f7-4467-963a-2cb713fa1543" type="ANY" >
+				<ee:transform doc:name="Copy_of_Transform Message" doc:id="0f990260-37ec-4eac-8f19-49b726729184" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message:"Request is incorrect please try again"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="getByIDFlow" doc:id="239a7df8-a6cb-4793-a901-e0d7962ba930" >
+		<http:listener doc:name="getID Listener" doc:id="11a245bc-a438-4e38-84f8-806525e33e76" config-ref="HTTP_Listener_config1" path="/getManagementInfo/{managementID}" allowedMethods="GET" />
+		<db:select doc:name="retrive account by ID" doc:id="6b954de5-eb8f-4be9-bf6b-c6f22e2f71a8" config-ref="Database_Config" >
+			<db:sql >select * from managementinfo where managementId=:managementID</db:sql>
+			<db:input-parameters ><![CDATA[#["managementID": attributes.uriParams.managementID]]]></db:input-parameters>
+		</db:select>
+		<ee:transform doc:name="Transform to output" doc:id="e2e65b1d-8776-4834-bb30-25973dbcd4ee" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload map ( payload01 , indexOfPayload01 ) ->{
+	mangementID: payload01.managementID,
+	Identification: {
+		FirstName: payload01.FirstName default "",
+		LastName: payload01.LastName default "",
+		DOB: payload01.DOB default "",
+		Gender: payload01.Gender default "",
+		Title: payload01.Title default ""
+	},
+	Address: [{
+		AddressType: payload01.addressType default "",
+		Number: payload01.StreetNumber as Number default 0,
+		Street: payload01.Street default "",
+		Unit: payload01.Unit default "",
+		City: payload01.City default "",
+		State: payload01.State default "",
+		Zipcode: payload01.Zipcode default ""
+	}],
+	Communication: [{
+		Type1: payload01.contact1Type default "",
+		Value: payload01.Email default "",
+		Preferred: payload01.Preferred default "",
+		},
+		{Type2: payload01.contact2Type default "",
+		Value2: payload01.Phone default ""	
+	}]
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="Copy_of_On Error Propagate" doc:id="1b921015-bb24-4114-8c4a-bf0e2d54d407" type="ANY" >
+				<ee:transform doc:name="Copy_of_Transform Message" doc:id="2b9b088b-f13f-43eb-8e10-9ac9392efb1f" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message:"Request is incorrect please try again"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="putManagementAccountFlow" doc:id="816961d5-443e-43c4-9d09-8cf2531db660" >
+		<http:listener doc:name="Listener" doc:id="9b5e9534-a58e-4073-9547-0e56fdf1f9a6" path="/putManagementInfo" allowedMethods="PUT" config-ref="HTTP_Listener_config1"/>
+		<db:update doc:name="Update" doc:id="7af98d14-f442-4137-af78-3dae6ed0f64f" config-ref="Database_Config">
+			<db:sql >UPDATE managementinfo
+SET 
+LastName=:LastName,FirstName=:FirstName,StreetNumber=:StreetNumber,Street=:Street,City=:City,State=:State,Zipcode=:Zipcode,Unit=:Unit,Phone=:Phone,Email=:Email,Gender=:Gender,DOB=:DOB,Preferred=:Preferred,Title=:Title,contact1Type=:contact1Type, contact2Type=:contact2Type,addressType=:addressType,managementID=:managementID
+Where
+managementID=:managementID
+</db:sql>
+			<db:input-parameters ><![CDATA[#[{
+"LastName": payload.Identification.LastName,
+"FirstName":payload.Identification.FirstName,
+"StreetNumber":payload.Address[0].Number ,
+"Street":payload.Address[0].Street,
+"City": payload.Address[0].City,
+"State":payload.Address[0].State,
+"Zipcode":payload.Address[0].Zipcode,
+"Unit":payload.Address[0].Unit,
+"Phone":payload.Communication[1].Value2,
+"Email":payload.Communication[0].Value,
+"Gender":payload.Identification.Gender,
+"DOB":payload.Identification.DOB,
+"Preferred": payload.Communication[0].Preferred,
+"Title": payload.Identification.Title,
+"contact1Type":payload.Communication[0].Type1,
+"contact2Type": payload.Communication[1].Type2,
+"addressType":payload.Address[0].AddressType,
+"managementID":payload.managementID
+}]]]></db:input-parameters>
+		</db:update>
+		<set-payload value='"Management Account Updated Successfully"' doc:name="Update message" doc:id="61b89017-4732-4883-ad53-4bc58522c469" />
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="Copy_of_On Error Propagate" doc:id="10961697-ea66-4ea3-bd8f-948bff232961" type="ANY" >
+				<ee:transform doc:name="Copy_of_Transform Message" doc:id="61ed2df1-b369-4180-850d-fb85e428bf8e" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message:"Request is incorrect please try again"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="deleteManagementAccountFlow" doc:id="3bed726a-189a-40be-b834-141e8f51546f" >
+		<http:listener doc:name="Listener" doc:id="8567a194-e53a-488e-8d78-2b2ec0ae1746" config-ref="HTTP_Listener_config1" path="/deleteManagementInfo" allowedMethods="DELETE"/>
+		<db:delete doc:name="Delete" doc:id="3f6bd0db-74c5-4c4d-a0a4-6b41b9154aa4" config-ref="Database_Config">
+			<db:sql >DELETE FROM managementinfo WHERE managementID=:managementID</db:sql>
+			<db:input-parameters ><![CDATA[#["managementID": payload.managementID]]]></db:input-parameters>
+		</db:delete>
+		<set-payload value='"Management Account Successfully Deleted"' doc:name="Sucess Message" doc:id="d2a22eb2-bd43-4fb3-a142-078f2e683a4a" />
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="Copy_of_On Error Propagate" doc:id="835ff25c-6e7e-4baa-be30-d4aa84bd8799" type="ANY" >
+				<ee:transform doc:name="Copy_of_Transform Message" doc:id="e9b8861e-b00c-43a9-bdfe-17df26f797b3" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	message:"Request is incorrect please try again"
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+</mule>
